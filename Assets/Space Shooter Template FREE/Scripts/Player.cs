@@ -11,7 +11,7 @@ public class Player : MonoBehaviour
 {
     public GameObject destructionFX;
 
-    public static Player instance; 
+    public static Player instance;
 
     private void Awake()
     {

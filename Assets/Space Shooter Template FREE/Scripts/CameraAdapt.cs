@@ -2,9 +2,6 @@
 using System.Collections;
 
 public class CameraAdapt : MonoBehaviour {
-
-	//基于iPhone4比例的单位高度
-	float devHeight = 19.2f;
 	//基于iPhone4比例的单位宽度
 	float devWidth = 10.8f;
 

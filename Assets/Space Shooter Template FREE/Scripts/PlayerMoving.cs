@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// This script defines the borders of ‘Player’s’ movement. Depending on the chosen handling type, it moves the ‘Player’ together with the pointer.
@@ -10,16 +11,21 @@ using UnityEngine;
 public class Borders
 {
     [Tooltip("offset from viewport borders for player's movement")]
-    public float minXOffset = 1.5f, maxXOffset = 1.5f, minYOffset = 1.5f, maxYOffset = 1.5f;
-    [HideInInspector] public float minX, maxX, minY, maxY;
+    public float minXOffset = 1f, maxXOffset = 1f, minYOffset = 1f, maxYOffset = 1f;
+    [HideInInspector]
+    public float minX, maxX, minY, maxY;
 }
 
-public class PlayerMoving : MonoBehaviour {
+public class PlayerMoving : MonoBehaviour,IDragHandler,IEndDragHandler {
 
     [Tooltip("offset from viewport borders for player's movement")]
     public Borders borders;
     Camera mainCamera;
-    bool controlIsActive = true; 
+    bool controlIsActive = true;
+    float maxBorderX = 7.0f;
+    bool setOffest = false;
+    Vector3 mouseOffset = Vector3.zero;
+    Transform cacheTransform;
 
     public static PlayerMoving instance; //unique instance of the script for easy access to the script
 
@@ -31,49 +37,47 @@ public class PlayerMoving : MonoBehaviour {
 
     private void Start()
     {
+        cacheTransform = transform;
         mainCamera = Camera.main;
         ResizeBorders();                //setting 'Player's' moving borders deending on Viewport's size
     }
 
-    private void Update()
+    public void OnDrag(PointerEventData data)
     {
         if (controlIsActive)
         {
-#if UNITY_STANDALONE || UNITY_EDITOR    //if the current platform is not mobile, setting mouse handling 
-
-            if (Input.GetMouseButton(0)) //if mouse button was pressed       
-            {
-                Vector3 mousePosition = mainCamera.ScreenToWorldPoint(Input.mousePosition); //calculating mouse position in the worldspace
-                mousePosition.z = transform.position.z;
-                transform.position = Vector3.MoveTowards(transform.position, mousePosition, 30 * Time.deltaTime);
+            Vector3 mousePosition = mainCamera.ScreenToWorldPoint(data.position); //calculating mouse position in the worldspace
+            mousePosition.z = cacheTransform.position.z;
+            if (!setOffest){
+                mouseOffset = cacheTransform.position - mousePosition;
+                setOffest = true;
             }
-#endif
+            cacheTransform.position = mousePosition + mouseOffset;
 
-#if UNITY_IOS || UNITY_ANDROID //if current platform is mobile, 
-
-            if (Input.touchCount == 1) // if there is a touch
-            {
-                Touch touch = Input.touches[0];
-                Vector3 touchPosition = mainCamera.ScreenToWorldPoint(touch.position);  //calculating touch position in the world space
-                touchPosition.z = transform.position.z;
-                transform.position = Vector3.MoveTowards(transform.position, touchPosition, 30 * Time.deltaTime);
-            }
-#endif
-            transform.position = new Vector3    //if 'Player' crossed the movement borders, returning him back 
+            cacheTransform.position = new Vector3    //if 'Player' crossed the movement borders, returning him back 
                 (
-                Mathf.Clamp(transform.position.x, borders.minX, borders.maxX),
-                Mathf.Clamp(transform.position.y, borders.minY, borders.maxY),
+                    Mathf.Clamp(cacheTransform.position.x, borders.minX, borders.maxX),
+                    Mathf.Clamp(cacheTransform.position.y, borders.minY, borders.maxY),
                 0
                 );
         }
     }
 
+    public void OnEndDrag(PointerEventData data){
+        setOffest = false;
+    }
+
     //setting 'Player's' movement borders according to Viewport size and defined offset
     void ResizeBorders() 
     {
-        borders.minX = mainCamera.ViewportToWorldPoint(Vector2.zero).x + borders.minXOffset;
-        borders.minY = mainCamera.ViewportToWorldPoint(Vector2.zero).y + borders.minYOffset;
-        borders.maxX = mainCamera.ViewportToWorldPoint(Vector2.right).x - borders.maxXOffset;
+        Vector2 worldZero = mainCamera.ViewportToWorldPoint(Vector2.zero);
+        Vector2 worldRight = mainCamera.ViewportToWorldPoint(Vector2.right);
+        float minX = Mathf.Max(worldZero.x,-maxBorderX);
+        float maxX = Mathf.Min(worldRight.x, maxBorderX);
+
+        borders.minX = minX + borders.minXOffset;
+        borders.minY = worldZero.y + borders.minYOffset;
+        borders.maxX = maxX - borders.maxXOffset;
         borders.maxY = mainCamera.ViewportToWorldPoint(Vector2.up).y - borders.maxYOffset;
     }
 }
